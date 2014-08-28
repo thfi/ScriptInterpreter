@@ -305,7 +305,7 @@ int process_controlsequence(char final_byte, char *intermediate_bytes, char *par
         }
 
         return 0;
-    case 0x6d:
+    case 0x6d: /* m */
         /// SGR -- Select Graphics Rendition (see 8.3.117 in ECMA-48 1991)
         if (debug_output) fprintf(stderr, "Control Sequence: Detected color change (parameter length=%zu, intermediate length=%zu)\n", strlen(parameter_bytes), strlen(intermediate_bytes));
 
@@ -315,6 +315,13 @@ int process_controlsequence(char final_byte, char *intermediate_bytes, char *par
             int len = 2;
             int color = ascii_to_dec(parameter_bytes, &len);
             if (len != 2) break;
+
+            /// Normalize non-standard aixterm high-intensity colors
+            if ((color >= 90 && color <= 97) || (color >= 100 && color <= 107)) {
+                intense = 1;
+                color -= 60;
+            }
+
             if (color == 0) {
                 if (debug_output) fprintf(stderr, "Resetting colors\n");
                 fprintf(xmloutputfile, "<color operation=\"reset\" />\n");
