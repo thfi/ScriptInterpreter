@@ -595,16 +595,6 @@ int process_typescript_step(size_t expected_size)
                     /// Bytes left to read but no valid String Terminator
                     if (debug_output) fprintf(stderr, "String Terminator expected at position %zu of %zu, but byte 0x%02x found instead\n", i, rlen - 1,  typescriptbuffer[i]);
                 }
-            } else if (typescriptbuffer[i + 1] >= 64 /* 04/00 */ && typescriptbuffer[i + 1] <= 95 /* 05/15 */) {
-                if (debug_output) fprintf(stderr, "Unknown 7-bit 2-byte escape sequence from C1 set: %02x %02x\n", typescriptbuffer[i + 1], typescriptbuffer[i + 2]);
-                /// 2-byte sequence
-                i += 2;
-                --i; /// Compensate for for-loop's ++i
-            } else if (typescriptbuffer[i + 1] >= 128 /* 08/00 */ && typescriptbuffer[i + 1] <= 159 /* 09/15 */) {
-                if (debug_output) fprintf(stderr, "Unknown 8-bit 2-byte escape sequence from C1 set: %02x %02x\n", typescriptbuffer[i + 1], typescriptbuffer[i + 2]);
-                /// 2-byte sequence
-                i += 2;
-                --i; /// Compensate for for-loop's ++i
             } else if (typescriptbuffer[i + 1] >= 0x3c /* 03/12 */ && typescriptbuffer[i + 1] <= 0x3f /* 03/15 */) {
                 if (debug_output) fprintf(stderr, "Private parameter string: %c%c\n", typescriptbuffer[i + 1], typescriptbuffer[i + 2]);
                 /// Assuming 2-byte sequence
