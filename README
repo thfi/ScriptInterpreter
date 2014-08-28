@@ -1,0 +1,5 @@
+This project is meant to take typescript and timing files
+created by the 'script' tool provided in the 'util-linux'
+package and translate it to a meaningful XML data structure
+that can be parsed and processed by other tools.
+
