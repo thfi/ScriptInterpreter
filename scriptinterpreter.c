@@ -7,6 +7,7 @@
 
 size_t typescriptbuffer_size;
 char *typescriptbuffer;
+int debug_output;
 
 FILE *timefile, *typescriptfile, *xmloutputfile;
 
@@ -175,7 +176,7 @@ int process_controlsequence(char final_byte, char *intermediate_bytes, char *par
                 col = ascii_to_dec(buffer, &len);
             }
         }
-        printf("Moving cursor to position row=%d, column=%d\n", row, col);
+        if (debug_output) fprintf(stderr, "Moving cursor to position row=%d, column=%d\n", row, col);
         fprintf(xmloutputfile, "<cursor absoluterow=\"%d\" absolutecolumn=\"%d\" />\n", row, col);
     }
     return 0;
@@ -190,10 +191,10 @@ int process_controlsequence(char final_byte, char *intermediate_bytes, char *par
         }
 
         if (len == 1) {
-            printf("Control Sequence: Erase in Page (param=%d)\n", param);
+            if (debug_output) fprintf(stderr, "Control Sequence: Erase in Page (param=%d)\n", param);
             fprintf(xmloutputfile, "<erase scope=\"in_page\" range=\"%s\" />\n", param == 0 ? "cur_to_end" : (param == 1 ? "begin_to_cur" : "all"));
         } else {
-            printf("Invalid len: %d\n", len);
+            if (debug_output) fprintf(stderr, "Invalid len: %d\n", len);
             return 1;
         }
     }
@@ -209,10 +210,10 @@ int process_controlsequence(char final_byte, char *intermediate_bytes, char *par
         }
 
         if (len == 1) {
-            printf("Control Sequence: Erase in Page (param=%d)\n", param);
+            if (debug_output) fprintf(stderr, "Control Sequence: Erase in Page (param=%d)\n", param);
             fprintf(xmloutputfile, "<erase scope=\"in_line\" range=\"%s\" />\n", param == 0 ? "cur_to_end" : (param == 1 ? "begin_to_cur" : "all"));
         } else {
-            printf("Invalid len: %d\n", len);
+            if (debug_output) fprintf(stderr, "Invalid len: %d\n", len);
             return 1;
         }
     }
@@ -220,7 +221,7 @@ int process_controlsequence(char final_byte, char *intermediate_bytes, char *par
     case 0x68:
         if (intermediate_bytes[0] == 0) {
             /// SM -- Set Mode (see 8.3.125 in ECMA-48 1991)
-            printf("Control Sequence: Set Mode (parameter length=%zu, intermediate length=%zu)\n", strlen(parameter_bytes), strlen(intermediate_bytes));
+            if (debug_output) fprintf(stderr, "Control Sequence: Set Mode (parameter length=%zu, intermediate length=%zu)\n", strlen(parameter_bytes), strlen(intermediate_bytes));
 
             int dec_mode = 0;
             if (*parameter_bytes == 0x3f) {
@@ -235,39 +236,39 @@ int process_controlsequence(char final_byte, char *intermediate_bytes, char *par
             int parameters_len = parameterstring_to_intarray(parameter_bytes, BUFFER_SIZE, parameters, ARRAY_LENGTH);
 
             if (parameters_len == 1 && parameters[0] == 1) {
-                printf("Application takes over control of cursor keys\n");
+                if (debug_output) fprintf(stderr, "Application takes over control of cursor keys\n");
                 fprintf(xmloutputfile, "<cursor key-control=\"application\" />\n");
             } else if (parameters_len == 1 && parameters[0] == 12) {
-                printf("Start blinking cursor\n");
+                if (debug_output) fprintf(stderr, "Start blinking cursor\n");
                 fprintf(xmloutputfile, "<cursor blinking=\"true\" />\n");
             } else if (parameters_len == 1 && parameters[0] == 25) {
-                printf("Hide cursor cursor\n");
+                if (debug_output) fprintf(stderr, "Hide cursor cursor\n");
                 fprintf(xmloutputfile, "<cursor show=\"false\" />\n");
             } else if (parameters_len == 1 && (parameters[0] == 47 || parameters[0] == 1047 || parameters[0] == 1049)) {
-                printf("Switching to alternate screen\n");
+                if (debug_output) fprintf(stderr, "Switching to alternate screen\n");
                 if (parameters[0] == 1049)
                     fprintf(xmloutputfile, "<cursor state=\"save\" />\n");
                 fprintf(xmloutputfile, "<screen switchto=\"1\" />\n");
             } else if (parameters_len == 1 && parameters[0] == 1034) {
-                printf("Interpret \"meta\" key, sets eighth bit\n");
+                if (debug_output) fprintf(stderr, "Interpret \"meta\" key, sets eighth bit\n");
                 fprintf(xmloutputfile, "<special state=\"8bit\" />\n");
             } else if (parameters_len == 1 && parameters[0] == 1048) {
                 fprintf(xmloutputfile, "<cursor state=\"save\" />\n");
-            } else {
-                printf("dec_mode=%d\n", dec_mode);
-                printf("parameters_len=%d\n", parameters_len);
+            } else if (debug_output) {
+                fprintf(stderr, "dec_mode=%d\n", dec_mode);
+                fprintf(stderr, "parameters_len=%d\n", parameters_len);
                 for (int i = 0; i < parameters_len; ++i)
-                    printf("parameters[%d]=%d\n", i, parameters[i]);
+                    fprintf(stderr, "parameters[%d]=%d\n", i, parameters[i]);
             }
 
             return 0;
         } else {
-            printf("Unsupported Control Sequence that ends with 0x68\n");
+            if (debug_output) fprintf(stderr, "Unsupported Control Sequence that ends with 0x68\n");
             return 0;
         }
     case 0x6c:
         /// RM -- Reset Mode (see 8.3.106 in ECMA-48 1991)
-        printf("Control Sequence: Reset Mode (parameter length=%zu, intermediate length=%zu)\n", strlen(parameter_bytes), strlen(intermediate_bytes));
+        if (debug_output) fprintf(stderr, "Control Sequence: Reset Mode (parameter length=%zu, intermediate length=%zu)\n", strlen(parameter_bytes), strlen(intermediate_bytes));
 
         int dec_mode = 0;
         if (*parameter_bytes == 0x3f) {
@@ -281,32 +282,32 @@ int process_controlsequence(char final_byte, char *intermediate_bytes, char *par
         int parameters[ARRAY_LENGTH];
         int parameters_len = parameterstring_to_intarray(parameter_bytes, BUFFER_SIZE, parameters, ARRAY_LENGTH);
         if (parameters_len == 1 && parameters[0] == 1) {
-            printf("Terminal takes over control of cursor keys\n");
+            if (debug_output) fprintf(stderr, "Terminal takes over control of cursor keys\n");
             fprintf(xmloutputfile, "<cursor key-control=\"terminal\" />\n");
         } else if (parameters_len == 1 && parameters[0] == 12) {
-            printf("Stop blinking cursor\n");
+            if (debug_output) fprintf(stderr, "Stop blinking cursor\n");
             fprintf(xmloutputfile, "<cursor blinking=\"false\" />\n");
         } else if (parameters_len == 1 && parameters[0] == 25) {
-            printf("Show cursor cursor\n");
+            if (debug_output) fprintf(stderr, "Show cursor cursor\n");
             fprintf(xmloutputfile, "<cursor show=\"true\" />\n");
         } else if (parameters_len == 1 && (parameters[0] == 47 || parameters[0] == 1047 || parameters[0] == 1049)) {
-            printf("Switching back from alternate screen\n");
+            if (debug_output) fprintf(stderr, "Switching back from alternate screen\n");
             if (parameters[0] == 1049)
                 fprintf(xmloutputfile, "<cursor state=\"restore\" />\n");
             fprintf(xmloutputfile, "<screen switchto=\"0\" />\n");
         } else if (parameters_len == 1 && parameters[0] == 1048) {
             fprintf(xmloutputfile, "<cursor state=\"restore\" />\n");
-        } else {
-            printf("dec_mode=%d\n", dec_mode);
-            printf("parameters_len=%d\n", parameters_len);
+        } else if (debug_output) {
+            fprintf(stderr, "dec_mode=%d\n", dec_mode);
+            fprintf(stderr, "parameters_len=%d\n", parameters_len);
             for (int i = 0; i < parameters_len; ++i)
-                printf("parameters[%d]=%d\n", i, parameters[i]);
+                fprintf(stderr, "parameters[%d]=%d\n", i, parameters[i]);
         }
 
         return 0;
     case 0x6d:
         /// SGR -- Select Graphics Rendition (see 8.3.117 in ECMA-48 1991)
-        printf("Control Sequence: Detected color change (parameter length=%zu, intermediate length=%zu)\n", strlen(parameter_bytes), strlen(intermediate_bytes));
+        if (debug_output) fprintf(stderr, "Control Sequence: Detected color change (parameter length=%zu, intermediate length=%zu)\n", strlen(parameter_bytes), strlen(intermediate_bytes));
 
         int intense = 0, faint = 0;
 
@@ -315,37 +316,37 @@ int process_controlsequence(char final_byte, char *intermediate_bytes, char *par
             int color = ascii_to_dec(parameter_bytes, &len);
             if (len != 2) break;
             if (color == 0) {
-                printf("Resetting colors\n");
+                if (debug_output) fprintf(stderr, "Resetting colors\n");
                 fprintf(xmloutputfile, "<color operation=\"reset\" />\n");
                 intense = 0;
                 faint = 0;
             } else if (color == 1) {
-                printf("Using intense colors\n");
+                if (debug_output) fprintf(stderr, "Using intense colors\n");
                 intense = 1;
                 faint = 0;
             } else if (color == 2) {
-                printf("Using faint colors\n");
+                if (debug_output) fprintf(stderr, "Using faint colors\n");
                 intense = 0;
                 faint = 1;
             } else if ((color >= 30 && color <= 37) || color == 39) {
                 char colorstring[BUFFER_SIZE];
                 colortostring(color, colorstring, BUFFER_SIZE);
-                printf("Foreground using color \"%s\" (%i)\n", colorstring, color);
+                if (debug_output) fprintf(stderr, "Foreground using color \"%s\" (%i)\n", colorstring, color);
                 fprintf(xmloutputfile, "<color foreground=\"%s-%s\" />\n", intense == 0 ? (faint == 0 ? "normal" : "faint") : "intense", colorstring);
             } else if (color == 38) {
-                printf("Future unsupported foreground color\n");
+                if (debug_output) fprintf(stderr, "Future unsupported foreground color\n");
                 fprintf(xmloutputfile, "<color foreground=\"normal-default\" />\n");
                 break;
             } else if ((color >= 40 && color <= 47) || color == 49) {
                 char colorstring[BUFFER_SIZE];
                 colortostring(color, colorstring, BUFFER_SIZE);
-                printf("Background using color \"%s\" (%i)\n", colorstring, color);
+                if (debug_output) fprintf(stderr, "Background using color \"%s\" (%i)\n", colorstring, color);
                 fprintf(xmloutputfile, "<color background=\"%s-%s\" />\n", intense == 0 ? (faint == 0 ? "normal" : "faint") : "intense", colorstring);
             } else if (color == 48) {
-                printf("Future unsupported background color\n");
+                if (debug_output) fprintf(stderr, "Future unsupported background color\n");
                 fprintf(xmloutputfile, "<color background=\"normal-default\" />\n");
             } else {
-                printf("Unknown color code: %u\n", color);
+                if (debug_output) fprintf(stderr, "Unknown color code: %u\n", color);
                 fprintf(xmloutputfile, "<color operation=\"reset\" />\n");
             }
             if (parameter_bytes[2] == ';')
@@ -366,15 +367,15 @@ int process_controlsequence(char final_byte, char *intermediate_bytes, char *par
         }
 
         if (len == 1) {
-            printf("Control Sequence: Device Status Report (param=%d)\n", param);
+            if (debug_output) fprintf(stderr, "Control Sequence: Device Status Report (param=%d)\n", param);
         } else {
-            printf("Invalid len: %d\n", len);
+            if (debug_output) fprintf(stderr, "Invalid len: %d\n", len);
             return 1;
         }
     }
     return 0;
     default:
-        printf("Don't know Final Byte 0x%02x for Control Sequence (parameter length=%zu, intermediate length=%zu)\n", final_byte, strlen(parameter_bytes), strlen(intermediate_bytes));
+        if (debug_output) fprintf(stderr, "Don't know Final Byte 0x%02x for Control Sequence (parameter length=%zu, intermediate length=%zu)\n", final_byte, strlen(parameter_bytes), strlen(intermediate_bytes));
         return 0;
     }
 }
@@ -410,7 +411,7 @@ int process_typescript_step(size_t expected_size)
     /// Go through every byte in the typescript buffer ...
     for (size_t i = 0; ret == 0 && i < rlen; ++i) {
         if (typescriptbuffer[i] == 0x0a) {
-            printf("char: Line Feed  (%zu of %zu)\n", i, rlen - 1);
+            if (debug_output) fprintf(stderr, "char: Line Feed  (%zu of %zu)\n", i, rlen - 1);
             if (insidetextsequence == 1) {
                 /// If open, close current <text> environment
                 fprintf(xmloutputfile, "</text>\n");
@@ -418,7 +419,7 @@ int process_typescript_step(size_t expected_size)
             }
             fprintf(xmloutputfile, "<newline />\n");
         } else if (typescriptbuffer[i] == 0x0d) {
-            printf("char: Carriage Return  (%zu of %zu)\n", i, rlen - 1);
+            if (debug_output) fprintf(stderr, "char: Carriage Return  (%zu of %zu)\n", i, rlen - 1);
             if (insidetextsequence == 1) {
                 /// If open, close current <text> environment
                 fprintf(xmloutputfile, "</text>\n");
@@ -427,7 +428,7 @@ int process_typescript_step(size_t expected_size)
             if (i < rlen - 1 && typescriptbuffer[i + 1] != 0x0a) ///< lonely CR without following LF
                 fprintf(xmloutputfile, "<newline />\n");
         } else if (typescriptbuffer[i] >= 32 && typescriptbuffer[i] < 128) {
-            printf("char: %c  (%zu of %zu)\n", typescriptbuffer[i], i, rlen - 1);
+            if (debug_output) fprintf(stderr, "char: %c  (%zu of %zu)\n", typescriptbuffer[i], i, rlen - 1);
             if (insidetextsequence == 0) {
                 /// If not open, open a <text> environment
                 fprintf(xmloutputfile, "<text>");
@@ -445,7 +446,7 @@ int process_typescript_step(size_t expected_size)
             /// Escape sequence
             if (typescriptbuffer[i + 1] == 0x5b /* 05/11 from 7-bit C1 set */) {
                 /// CSI -- Command Sequence Introducer (see 5.4 in ECMA-48 1991)
-                printf("CSI at position %zu of %zu\n", i, rlen - 1);
+                if (debug_output) fprintf(stderr, "CSI at position %zu of %zu\n", i, rlen - 1);
                 i += 2;
 
                 size_t sequence_len;
@@ -468,12 +469,11 @@ int process_typescript_step(size_t expected_size)
 
                     ret = process_controlsequence(csi_final_byte, csi_intermediate_bytes, csi_parameter_bytes);
                     --i; /// Compensate for for-loop's ++i
-                } else {
-                    printf("Final Byte expected at position %zu of %zu, but byte 0x%02x found instead\n", i, rlen - 1, typescriptbuffer[i]);
-                }
+                } else if (debug_output)
+                    fprintf(stderr, "Final Byte expected at position %zu of %zu, but byte 0x%02x found instead\n", i, rlen - 1, typescriptbuffer[i]);
             } else if (typescriptbuffer[i + 1] == 0x5d /* 5/13 from 7-bit C1 set */) {
                 /// OSC -- Operating System Command (see 8.3.89 in ECMA-48 1991)
-                printf("OSC at position %zu of %zu\n", i, rlen - 1);
+                if (debug_output) fprintf(stderr, "OSC at position %zu of %zu\n", i, rlen - 1);
                 i += 2;
 
                 /// Read command string
@@ -490,26 +490,26 @@ int process_typescript_step(size_t expected_size)
                         fprintf(xmloutputfile, "</text>\n");
                         insidetextsequence = 0;
                     }
-                    printf("Window title=");
+                    if (debug_output) fprintf(stderr, "Window title=");
                     fprintf(xmloutputfile, "<osc type=\"windowtitle\">");
                     for (size_t j = 2; j < osc_string_len; ++j)
                         if (osc_string[j] >= 0x20 /* 02/00 */ && osc_string[j] <= 0x7e /* 07/14 */) {
                             /// Write out printable characters only
-                            printf("%c", osc_string[j]);
+                            if (debug_output) fprintf(stderr, "%c", osc_string[j]);
                             /// Handle XML entities correctly
                             xmlized_print(xmloutputfile, osc_string[j]);
                         }
-                    printf("\n");
+                    if (debug_output) fprintf(stderr, "\n");
                     fprintf(xmloutputfile, "</osc>\n");
-                } else {
-                    printf("unknown command string=");
+                } else if (debug_output) {
+                    fprintf(stderr, "unknown command string=");
                     for (size_t j = 0; j < osc_string_len; ++j) {
                         if (osc_string[j] >= 0x20 /* 02/00 */ && osc_string[j] <= 0x7e /* 07/14 */)
-                            printf("%c", osc_string[j]);
+                            fprintf(stderr, "%c", osc_string[j]);
                         else
-                            printf("[%02x]", osc_string[j]);
+                            fprintf(stderr, "[%02x]", osc_string[j]);
                     }
-                    printf("\n");
+                    fprintf(stderr, "\n");
                 }
 
                 /// Read String Terminator
@@ -530,20 +530,20 @@ int process_typescript_step(size_t expected_size)
                     --i; /// Compensate for for-loop's ++i
                 } else if (i < rlen - 1) {
                     /// Bytes left to read but no valid String Terminator
-                    printf("String Terminator expected at position %zu of %zu, but byte 0x%02x found instead\n", i, rlen - 1,  typescriptbuffer[i]);
+                    if (debug_output) fprintf(stderr, "String Terminator expected at position %zu of %zu, but byte 0x%02x found instead\n", i, rlen - 1,  typescriptbuffer[i]);
                 }
             } else if (typescriptbuffer[i + 1] >= 64 /* 04/00 */ && typescriptbuffer[i + 1] <= 95 /* 05/15 */) {
-                printf("Unknown 7-bit 2-byte escape sequence from C1 set: %02x %02x\n", typescriptbuffer[i + 1], typescriptbuffer[i + 2]);
+                if (debug_output) fprintf(stderr, "Unknown 7-bit 2-byte escape sequence from C1 set: %02x %02x\n", typescriptbuffer[i + 1], typescriptbuffer[i + 2]);
                 /// 2-byte sequence
                 i += 2;
                 --i; /// Compensate for for-loop's ++i
             } else if (typescriptbuffer[i + 1] >= 128 /* 08/00 */ && typescriptbuffer[i + 1] <= 159 /* 09/15 */) {
-                printf("Unknown 8-bit 2-byte escape sequence from C1 set: %02x %02x\n", typescriptbuffer[i + 1], typescriptbuffer[i + 2]);
+                if (debug_output) fprintf(stderr, "Unknown 8-bit 2-byte escape sequence from C1 set: %02x %02x\n", typescriptbuffer[i + 1], typescriptbuffer[i + 2]);
                 /// 2-byte sequence
                 i += 2;
                 --i; /// Compensate for for-loop's ++i
             } else if (typescriptbuffer[i + 1] >= 0x3c /* 03/12 */ && typescriptbuffer[i + 1] <= 0x3f /* 03/15 */) {
-                printf("Private parameter string: %c%c\n", typescriptbuffer[i + 1], typescriptbuffer[i + 2]);
+                if (debug_output) fprintf(stderr, "Private parameter string: %c%c\n", typescriptbuffer[i + 1], typescriptbuffer[i + 2]);
                 /// Assuming 2-byte sequence
                 i += 2;
                 --i; /// Compensate for for-loop's ++i
@@ -559,10 +559,12 @@ int process_typescript_step(size_t expected_size)
                 insidetextsequence = 0;
             }
 
-            if (typescriptbuffer[i] & 0x80)
-                printf("8-bit char: 0x%02x  (%zu of %zu)\n", typescriptbuffer[i] & 0xff, i, rlen - 1);
-            else
-                printf("char: 0x%02x  (%zu of %zu)\n", typescriptbuffer[i], i, rlen - 1);
+            if (debug_output) {
+                if (typescriptbuffer[i] & 0x80)
+                    fprintf(stderr, "8-bit char: 0x%02x  (%zu of %zu)\n", typescriptbuffer[i] & 0xff, i, rlen - 1);
+                else
+                    fprintf(stderr, "char: 0x%02x  (%zu of %zu)\n", typescriptbuffer[i], i, rlen - 1);
+            }
         }
     }
 
@@ -613,16 +615,24 @@ int process_timefile()
 
 int main(int argc, char *argv[])
 {
+    debug_output = 0;
+
     /// Require three parameters passed to this program.
-    if (argc != 4) {
-        printf("Require three parameters: timefilename typescriptfilename xmloutputfilename, got %d parameters\n", argc - 1);
+    if (argc < 4) {
+        fprintf(stderr, "Require three parameters: timefilename typescriptfilename xmloutputfilename, got %d parameters\n", argc - 1);
+        fprintf(stderr, "Optionally, there may be a '--debug' as the first parameter to enable debug output.\n");
         return 1;
+    }
+
+    if (argc > 4 && strcmp("--debug", argv[argc - 4]) == 0) {
+        fprintf(stderr, "Enabling debug output\n");
+        debug_output = 1;
     }
 
     char *timefilename = argv[argc - 3];
     timefile = fopen(timefilename, "r");
     if (!timefile) {
-        printf("Cannot open timefilename \"%s\"\n", timefilename);
+        fprintf(stderr, "Cannot open timefilename \"%s\"\n", timefilename);
         return 1;
     }
 
@@ -630,16 +640,22 @@ int main(int argc, char *argv[])
     typescriptfile = fopen(typescriptfilename, "r");
     if (!typescriptfile) {
         fclose(timefile);
-        printf("Cannot open typescriptfilename \"%s\"\n", typescriptfilename);
+        fprintf(stderr, "Cannot open typescriptfilename \"%s\"\n", typescriptfilename);
         return 1;
     }
 
     char *xmloutputfilename = argv[argc - 1];
-    xmloutputfile = fopen(xmloutputfilename, "w");
+    if (xmloutputfilename[0] == '-' && xmloutputfilename[1] == '\0') {
+        /// Write to stdout instead of to a file
+        xmloutputfile = stdout;
+    } else {
+        /// Write to a plain text file
+        xmloutputfile = fopen(xmloutputfilename, "w");
+    }
     if (!xmloutputfile) {
         fclose(typescriptfile);
         fclose(timefile);
-        printf("Cannot open xmloutputfilename \"%s\"\n", xmloutputfilename);
+        fprintf(stderr, "Cannot open xmloutputfilename \"%s\"\n", xmloutputfilename);
         return 1;
     } else {
         fprintf(xmloutputfile, "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n");
@@ -652,7 +668,8 @@ int main(int argc, char *argv[])
 
     int ret = process_timefile();
     if (ret != 0) {
-        fclose(xmloutputfile);
+        if (xmloutputfile != stdout)
+            fclose(xmloutputfile);
         fclose(timefile);
         fclose(typescriptfile);
         free(typescriptbuffer);
@@ -661,7 +678,8 @@ int main(int argc, char *argv[])
 
     fprintf(xmloutputfile, "</script>\n");
 
-    fclose(xmloutputfile);
+    if (xmloutputfile != stdout)
+        fclose(xmloutputfile);
     fclose(timefile);
     fclose(typescriptfile);
     free(typescriptbuffer);
