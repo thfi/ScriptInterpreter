@@ -1,4 +1,4 @@
-#!/usr/bin/sh
+#!/usr/bin/env bash
 
 if [[ $# -eq 1 && -n "$1" ]] ; then
 	IDENTIFIER="$1"
