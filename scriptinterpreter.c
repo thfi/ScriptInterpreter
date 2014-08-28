@@ -407,7 +407,7 @@ int process_typescript_step(size_t expected_size)
 {
     char csi_parameter_bytes[BUFFER_SIZE];
     char csi_intermediate_bytes[BUFFER_SIZE];
-    char osc_string[BUFFER_SIZE];
+    char osc_string[BUFFER_SIZE], dcs_string[BUFFER_SIZE];
     char csi_final_byte;
     int ret = 0;
     int insidetextsequence = 0;
@@ -491,7 +491,49 @@ int process_typescript_step(size_t expected_size)
                     --i; /// Compensate for for-loop's ++i
                 } else if (debug_output)
                     fprintf(stderr, "Final Byte expected at position %zu of %zu, but byte 0x%02x found instead\n", i, rlen - 1, typescriptbuffer[i]);
-            } else if (typescriptbuffer[i + 1] == 0x5d /* 5/13 from 7-bit C1 set */) {
+            } else if (typescriptbuffer[i + 1] == 0x50 /* 05/00 from 7-bit C1 set */) {
+                /// DCS -- Device Control String (see 8.3.27 in ECMA-48 1991)
+                if (debug_output) fprintf(stderr, "DCS at position %zu of %zu\n", i, rlen - 1);
+                i += 2;
+
+                /// Read command string
+                size_t dcs_string_len = 0;
+                while (i < rlen && dcs_string_len < BUFFER_SIZE - 1 && ((typescriptbuffer[i] >= 0x08 /* 00/08 */ && typescriptbuffer[i] <= 0x0d /* 00/13 */) || (typescriptbuffer[i] >= 0x20 /* 02/00 */ && typescriptbuffer[i] <= 0x7e /* 07/14 */)))
+                    dcs_string[dcs_string_len++] = typescriptbuffer[i++];
+                dcs_string[dcs_string_len] = '\0';
+
+                if (debug_output) {
+                    fprintf(stderr, "unknown device control string=");
+                    for (size_t j = 0; j < dcs_string_len; ++j) {
+                        if (dcs_string[j] >= 0x20 /* 02/00 */ && dcs_string[j] <= 0x7e /* 07/14 */)
+                            fprintf(stderr, "%c", dcs_string[j]);
+                        else
+                            fprintf(stderr, "[%02x]", dcs_string[j]);
+                    }
+                    fprintf(stderr, "\n");
+                }
+
+                /// Read String Terminator
+                if (i < rlen && typescriptbuffer[i] == 0x9c) {
+                    /// 8-bit single-byte String Terminator (see 8.3.143 in ECMA-48 1991)
+                    ++i;
+
+                    --i; /// Compensate for for-loop's ++i
+                } else if (i < rlen - 1 && typescriptbuffer[i] == 0x1b && typescriptbuffer[i + 1] == 0x5c) {
+                    /// 7-bit double-byte String Terminator (see 8.3.143 in ECMA-48 1991)
+                    i += 2;
+
+                    --i; /// Compensate for for-loop's ++i
+                } else if (i < rlen && typescriptbuffer[i] == 0x07) {
+                    /// Sometimes a BEL is acceptable as an alternative to a String Terminator
+                    ++i;
+
+                    --i; /// Compensate for for-loop's ++i
+                } else if (i < rlen - 1) {
+                    /// Bytes left to read but no valid String Terminator
+                    if (debug_output) fprintf(stderr, "String Terminator expected at position %zu of %zu, but byte 0x%02x found instead\n", i, rlen - 1,  typescriptbuffer[i]);
+                }
+            } else if (typescriptbuffer[i + 1] == 0x5d /* 05/13 from 7-bit C1 set */) {
                 /// OSC -- Operating System Command (see 8.3.89 in ECMA-48 1991)
                 if (debug_output) fprintf(stderr, "OSC at position %zu of %zu\n", i, rlen - 1);
                 i += 2;
@@ -501,6 +543,7 @@ int process_typescript_step(size_t expected_size)
                 while (i < rlen && osc_string_len < BUFFER_SIZE - 1 && ((typescriptbuffer[i] >= 0x08 /* 00/08 */ && typescriptbuffer[i] <= 0x0d /* 00/13 */) || (typescriptbuffer[i] >= 0x20 /* 02/00 */ && typescriptbuffer[i] <= 0x7e /* 07/14 */)))
                     osc_string[osc_string_len++] = typescriptbuffer[i++];
                 osc_string[osc_string_len] = '\0';
+
                 if (osc_string_len > 3 && osc_string[0] == '0' && osc_string[1] == ';') {
                     /// OSC starting with '0;' sets the window title, the remaining
                     /// printable characters are the title
