@@ -309,7 +309,7 @@ int process_controlsequence(char final_byte, char *intermediate_bytes, char *par
         /// SGR -- Select Graphics Rendition (see 8.3.117 in ECMA-48 1991)
         if (debug_output) fprintf(stderr, "Control Sequence: Detected color change (parameter length=%zu, intermediate length=%zu)\n", strlen(parameter_bytes), strlen(intermediate_bytes));
 
-        int intense = 0, faint = 0;
+        int intense = 0, faint = 0, inverted = 0;
 
         while (strlen(parameter_bytes) >= 2) {
             int len = 2;
@@ -320,6 +320,7 @@ int process_controlsequence(char final_byte, char *intermediate_bytes, char *par
                 fprintf(xmloutputfile, "<color operation=\"reset\" />\n");
                 intense = 0;
                 faint = 0;
+                inverted = 0;
             } else if (color == 1) {
                 if (debug_output) fprintf(stderr, "Using intense colors\n");
                 intense = 1;
@@ -328,23 +329,35 @@ int process_controlsequence(char final_byte, char *intermediate_bytes, char *par
                 if (debug_output) fprintf(stderr, "Using faint colors\n");
                 intense = 0;
                 faint = 1;
+            } else if (color == 3) {
+                if (debug_output) fprintf(stderr, "Italic font not (yet) supported\n");
+            } else if (color == 4) {
+                if (debug_output) fprintf(stderr, "Underline text not (yet) supported\n");
+            } else if (color == 5 || color == 6) {
+                if (debug_output) fprintf(stderr, "Blinking text not (yet) supported\n");
+            } else if (color == 7) {
+                if (debug_output) fprintf(stderr, "Using negative/inverted colors\n");
+                inverted = 1;
+            } else if (color == 27) {
+                if (debug_output) fprintf(stderr, "Using positive/non-inverted colors\n");
+                inverted = 0;
             } else if ((color >= 30 && color <= 37) || color == 39) {
                 char colorstring[BUFFER_SIZE];
                 colortostring(color, colorstring, BUFFER_SIZE);
-                if (debug_output) fprintf(stderr, "Foreground using color \"%s\" (%i)\n", colorstring, color);
-                fprintf(xmloutputfile, "<color foreground=\"%s-%s\" />\n", intense == 0 ? (faint == 0 ? "normal" : "faint") : "intense", colorstring);
+                if (debug_output) fprintf(stderr, "%s using color \"%s\" (%i)\n", inverted ? "Background (inverted foreground)" : "Foreground", colorstring, color);
+                fprintf(xmloutputfile, "<color %s=\"%s-%s\" />\n", inverted ? "background" : "foreground", intense == 0 ? (faint == 0 ? "normal" : "faint") : "intense", colorstring);
             } else if (color == 38) {
                 if (debug_output) fprintf(stderr, "Future unsupported foreground color\n");
-                fprintf(xmloutputfile, "<color foreground=\"normal-default\" />\n");
+                fprintf(xmloutputfile, "<color %s=\"normal-default\" />\n", inverted ? "background" : "foreground");
                 break;
             } else if ((color >= 40 && color <= 47) || color == 49) {
                 char colorstring[BUFFER_SIZE];
                 colortostring(color, colorstring, BUFFER_SIZE);
-                if (debug_output) fprintf(stderr, "Background using color \"%s\" (%i)\n", colorstring, color);
-                fprintf(xmloutputfile, "<color background=\"%s-%s\" />\n", intense == 0 ? (faint == 0 ? "normal" : "faint") : "intense", colorstring);
+                if (debug_output) fprintf(stderr, "%s using color \"%s\" (%i)\n", inverted ? "Foreground (inverted background)" : "Background", colorstring, color);
+                fprintf(xmloutputfile, "<color %s=\"%s-%s\" />\n", inverted ? "foreground" : "background", intense == 0 ? (faint == 0 ? "normal" : "faint") : "intense", colorstring);
             } else if (color == 48) {
                 if (debug_output) fprintf(stderr, "Future unsupported background color\n");
-                fprintf(xmloutputfile, "<color background=\"normal-default\" />\n");
+                fprintf(xmloutputfile, "<color %s=\"normal-default\" />\n", inverted ? "foreground" : "background");
             } else {
                 if (debug_output) fprintf(stderr, "Unknown color code: %u\n", color);
                 fprintf(xmloutputfile, "<color operation=\"reset\" />\n");
