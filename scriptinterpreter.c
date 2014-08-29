@@ -23,6 +23,8 @@ If not, see <http://www.gnu.org/licenses/>.
 #include <stdlib.h>
 #include <string.h>
 
+#include "utils.h"
+
 #define BUFFER_SIZE 1024
 #define ARRAY_LENGTH 256
 
@@ -31,52 +33,6 @@ char *typescriptbuffer;
 int debug_output;
 
 FILE *timefile, *typescriptfile, *xmloutputfile;
-
-/**
- * For a given integer number n, return
- * - 1 if n is zero or negative
- * - n itself if n is a power of 2
- * - the next power of 2 larger than n
- */
-int roundup_powerof2(int n)
-{
-    int result = 1;
-    while (n > 0) {
-        n /= 2;
-        result *= 2;
-    }
-    return result;
-}
-
-/**
- * Continue reading from an input file,
- * discarding all read data until
- * - there is a line break denoted by \n
- * - the end of file is reached
- */
-void skipline(FILE *input)
-{
-    int c;
-    while ((c = fgetc(input)) != EOF && c != '\n');
-}
-
-/// Handle XML entities correctly
-void xmlized_print(FILE *output, char c)
-{
-    switch (c) {
-    case '<':
-        fprintf(output, "&lt;");
-        break;
-    case '>':
-        fprintf(output, "&gt;");
-        break;
-    case '&':
-        fprintf(output, "&amp;");
-        break;
-    default:
-        fprintf(output, "%c", c);
-    }
-}
 
 /**
  * Convert a sequence of characters into an integer number.
