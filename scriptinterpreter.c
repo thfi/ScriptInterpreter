@@ -34,22 +34,47 @@ int debug_output;
 
 FILE *timefile, *typescriptfile, *xmloutputfile;
 
+/**
+ * Parses a string containing a semicolon-separated list
+ * of numbers (example: '51;66;38') into an array of
+ * integers like [51, 66, 38].
+ * @param arraystring string containing a a semicolon-separated list of numbers
+ * @param len maximum length of @p arraystring
+ * @param array array of integers to write the result to; length limited by @p arraylen
+ * @param arraylen maximum number of elements in @p array
+ */
 int parameterstring_to_intarray(char *arraystring, int len, int *array, int arraylen)
 {
     int arraypos = 0;
+    /// While there are characters left to read from the array string
+    /// and there are empty positions left in the result array ...
     while (len > 0 && arraypos < arraylen) {
-        int declen = len;
+        int declen = len; ///< maximum length of next number to be read from string
+        /// Read number from string, updates declen to number of characters actually read
         int dec = ascii_to_dec(arraystring, &declen);
+        /// Negative value for dec is error condition (return that), else it is read number
         if (dec < 0) return dec;
+        /// Step forward in array string for length of read number
         arraystring += declen;
+        /// Decrease number of chars left by string length of read number
+        len -= declen;
+        /// Store read number in next available position of integer result array
         array[arraypos++] = dec;
+        /// If next character in array string is not a semicolon,
+        /// then there are no more numbers to read
         if (*arraystring != ';') break;
+        /// Step forward over semicolon
         ++arraystring;
+        /// Decrease number of chars left by one (for the semicolon)
+        --len;
     }
 
+    /// If there is an empty spot left in the integer result array ...
     if (arraypos < arraylen)
+        /// ... write -1 to denote a "terminator"
         array[arraypos] = -1;
 
+    /// Return number of read numbers
     return arraypos;
 }
 
