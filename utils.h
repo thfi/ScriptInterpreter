@@ -45,4 +45,15 @@ void skipline(FILE *input);
  */
 void xmlized_print(FILE *output, char c);
 
+/**
+ * Convert a sequence of characters into an integer number.
+ * The sequence is limited by 'len' or the first appearance
+ * of a (semi)colon or the null character.
+ * The function will convert a valid sequence like '6721' to
+ * the numeric value 6721.
+ * The function will return -1 if the sequence contains an
+ * invalid character like 'a' or 'x'.
+ */
+int ascii_to_dec(char *sequence, int *len);
+
 #endif // SCRIPTINTERPRETER_UTILS_H

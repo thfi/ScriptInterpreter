@@ -34,40 +34,6 @@ int debug_output;
 
 FILE *timefile, *typescriptfile, *xmloutputfile;
 
-/**
- * Convert a sequence of characters into an integer number.
- * The sequence is limited by 'len' or the first appearance
- * of a (semi)colon or the null character.
- * The function will convert a valid sequence like '6721' to
- * the numeric value 6721.
- * The function will return -1 if the sequence contains an
- * invalid character like 'a' or 'x'.
- */
-int ascii_to_dec(char *sequence, int *len)
-{
-    int result = 0;
-    int left = *len;
-    *len = 0;
-    while (left > 0) {
-        if (*sequence == 0 || *sequence == 0x3b /* semicolon */ || *sequence == 0x3a /* colon */)
-            break;
-        if (*sequence >= 0x3c && *sequence <= 0x3f) {
-            fprintf(stderr, "Parameter string contains 'future use' bits\n");
-            return -1;
-        }
-        if (*sequence < 0x30 /* '0' */ || *sequence > 0x39 /* '9' */) {
-            fprintf(stderr, "Not a valid number char in sequence\n");
-            return -1;
-        }
-        result *= 10;
-        result += *sequence - '0';
-        ++sequence;
-        *len += 1;
-        --left;
-    }
-    return result;
-}
-
 int parameterstring_to_intarray(char *arraystring, int len, int *array, int arraylen)
 {
     int arraypos = 0;
