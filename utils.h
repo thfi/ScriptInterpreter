@@ -22,6 +22,8 @@ If not, see <http://www.gnu.org/licenses/>.
 #ifndef SCRIPTINTERPRETER_UTILS_H
 #define SCRIPTINTERPRETER_UTILS_H
 
+#include <stdio.h>
+
 /**
  * For a given integer number n, return
  * - 1 if n is zero or negative
