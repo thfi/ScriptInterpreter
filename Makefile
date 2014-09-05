@@ -8,19 +8,19 @@ scriptinterpreter_TEMPDIR:=/tmp/.scriptinterpreter_OBJECTS-$(shell echo $(script
 processxml_HEADERS:=utils.h
 processxml_OBJECTS:=processxml.o utils.o
 processxml_TEMPDIR:=/tmp/.processxml_OBJECTS-$(shell echo $(processxml_OBJECTS)$(processxml_HEADERS)$(PWD) | md5sum | cut -f1 -d\ )
-processxml_CFLAGS:=$(shell pkg-config expat --cflags)
-processxml_LDFLAGS:=$(shell pkg-config expat --libs)
+processxml_CFLAGS:=$(shell xml2-config --cflags)
+processxml_LDFLAGS:=$(shell xml2-config --libs)
 
 
 all: scriptinterpreter processxml
 
 
 scriptinterpreter: $(addprefix $(scriptinterpreter_TEMPDIR)/,$(scriptinterpreter_OBJECTS))
-	$(CC) $(LDFLAGS) -o $@ $^
+	$(CC) $(LDFLAGS) $(scriptinterpreter_LDFLAGS) -o $@ $^
 
 $(scriptinterpreter_TEMPDIR)/%.o: %.c $(scriptinterpreter_HEADERS)
 	@mkdir -p $(scriptinterpreter_TEMPDIR)
-	$(CC) $(CFLAGS) $(processxml_CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) $(scriptinterpreter_CFLAGS) -c -o $@ $<
 
 
 processxml: $(addprefix $(processxml_TEMPDIR)/,$(processxml_OBJECTS))
@@ -28,7 +28,7 @@ processxml: $(addprefix $(processxml_TEMPDIR)/,$(processxml_OBJECTS))
 
 $(processxml_TEMPDIR)/%.o: %.c $(processxml_HEADERS)
 	@mkdir -p $(processxml_TEMPDIR)
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) $(processxml_CFLAGS) -c -o $@ $<
 
 
 clean:
