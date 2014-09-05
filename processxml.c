@@ -170,6 +170,9 @@ int main(int argc, char *argv[])
     accumulated_delay = 0.0;
     int result = parse_script_node(root_element);
 
+    if (result == 0)
+        result = xmlDocDump(outputfile, doc) > 0 ? 0 : 1;
+
     /// Free the XML document
     xmlFreeDoc(doc);
 
