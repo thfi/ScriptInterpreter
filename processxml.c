@@ -19,90 +19,52 @@ along with ScriptInterpreter.
 If not, see <http://www.gnu.org/licenses/>.
 ********************************************************************/
 
+#define _POSIX_SOURCE
+
+#include <stdio.h>
 #include <stdio.h>
 #include <string.h>
 
-#include <expat.h>
-
+#include <libxml/parser.h>
+#include <libxml/tree.h>
 #define BUFFER_SIZE 16384
 
 int debug_output;
 
-struct xmldata {
-    int inside_timestep, timestep_is_empty;
-    double timestep_delay, accumulated_delay;
-    FILE *outputfile;
-    char buffered_text_tags[BUFFER_SIZE];
-    int buffered_text_tags_len;
-};
-
-void start_element(void *rawdata, const char *name, const char **attr) {
-    struct xmldata *data = (struct xmldata *)rawdata;
-
-    if (strcmp(name, "timestep") == 0) {
-        data->inside_timestep = 1;
-        data->timestep_is_empty = 1;
-
-        data->timestep_delay = 0.0;
-        for (int i = 0; attr[i] != NULL; i += 2)
-            if (strcmp(attr[i], "delay") == 0) {
-                data->timestep_delay = atof(attr[i + 1]);
-                break;
-            }
-    } else if (data->inside_timestep) { /// tag name is not "timestep" as tested already
-        data->timestep_is_empty = 0;
-    }
-
-    if (strcmp(name, "text") == 0 || strcmp(name, "newline") == 0) {
-        char textbuffer[BUFFER_SIZE];
-        int maxlen = BUFFER_SIZE;
-        maxlen -= snprintf(textbuffer, maxlen, "<%s", name);
-        for (int i = 0; attr[i]; i += 2)
-            maxlen -= snprintf(textbuffer, maxlen, " %s=\"%s\"", attr[i], attr[i + 1]);
-        maxlen -= snprintf(textbuffer, maxlen, ">");
-// TODO
-//        maxlen -= snprintf(textbuffer, maxlen, "</%s>", name);
-    }
-
-    printf("%s %d", name, data->inside_timestep);
-
-    for (int i = 0; attr[i]; i += 2) {
-        printf(" %s=\"%s\"", attr[i], attr[i + 1]);
-    }
-
-    printf("\n");
+int parse_timestep_node(xmlNode *timestepnode) {
+	// TODO
+    return 0;
 }
 
-void text(void *userData, const XML_Char *s, int len) {
-    if (len > 1 && s[0] != '\n' && s[0] != ' ') {
-        if (len >= BUFFER_SIZE) len = BUFFER_SIZE - 1;
-        char buffer[BUFFER_SIZE];
-        strncpy(buffer, s, len);
-        buffer[len] = '\0';
-        printf("text: %s\n", buffer);
+int parse_script_node(xmlNode *scriptnode) {
+    if (scriptnode->type != XML_ELEMENT_NODE) {
+        fprintf(stderr, "Current node \"%s\" is not an element\n", scriptnode->name);
+        return 4;
+    } else if (xmlStrEqual(scriptnode->name, (xmlChar *)"script") == 0) {
+        fprintf(stderr, "Current node's name is not \"script\" but \"%s\"\n", scriptnode->name);
+        return 4;
     }
-}
 
-void end_element(void *rawdata, const char *name) {
-    struct xmldata *data = (struct xmldata *)rawdata;
-    if (strcmp(name, "timestep") == 0) {
-        data->inside_timestep = 0;
-        if (data->timestep_is_empty && debug_output)
-            fprintf(stderr, "empty timestep, delay was =%.3lf\n", data->timestep_delay);
+    for (xmlNode *cur = scriptnode->children; cur; cur = cur->next) {
+        if (cur->type == XML_ELEMENT_NODE && xmlStrEqual(cur->name, (xmlChar *)"timestep") == 0) {
+            int result = parse_timestep_node(cur);
+            if (result != 0) return result;
+        }
     }
-}
 
+    return 0;
+}
 
 int main(int argc, char *argv[])
 {
     debug_output = 0;
-    char *inputfilename, *outputfilename;
-    FILE *inputfile, *outputfile;
+    char *inputfilename = NULL;
+    char *outputfilename = NULL;
+    FILE *inputfile = NULL;
+    FILE *outputfile = NULL;
 
-    struct xmldata data;
+    LIBXML_TEST_VERSION;
 
-    inputfilename = NULL;
-    outputfilename = NULL;
     if (argc > 1 && strcmp("--debug", argv[1]) == 0) {
         fprintf(stderr, "Enabling debug output\n");
         debug_output = 1;
@@ -142,39 +104,30 @@ int main(int argc, char *argv[])
         }
     }
 
-    XML_Parser p = XML_ParserCreate(NULL);
-    if (p == NULL) {
-        fprintf(stderr, "Couldn't allocate memory for parser\n");
+    xmlDocPtr doc = xmlReadFd(fileno(inputfile), inputfilename == NULL || inputfilename[0] == '\0' ? "noname.xml" : inputfilename, NULL, 0);
+    if (doc == NULL) {
+        if (inputfilename != NULL)
+            fprintf(stderr, "Failed to parse \"%s\"\n", inputfilename);
+        if (outputfile != stdout)
+            fclose(outputfile);
+        if (inputfile != stdin)
+            fclose(inputfile);
         return 1;
     }
+    xmlNode *root_element = xmlDocGetRootElement(doc);
 
-    XML_SetElementHandler(p, start_element, end_element);
-    XML_SetCharacterDataHandler(p, text);
+    int result = parse_script_node(root_element);
 
-    XML_SetUserData(p, &data);
-    data.inside_timestep = 5;
-    data.outputfile = outputfile;
-    data.accumulated_delay = 0.0;
-    data.buffered_text_tags_len = 0;
+    /// Free the XML document
+    xmlFreeDoc(doc);
 
-    char buffer[BUFFER_SIZE];
-    int done = 0;
-    while (done == 0) {
-        int len = fread(buffer, 1, BUFFER_SIZE, inputfile);
-        if (ferror(inputfile)) {
-            fprintf(stderr, "Read error from input file\n");
-            return 2;
-        }
-        int done = feof(stdin);
+    if (outputfile != stdout)
+        fclose(outputfile);
+    if (inputfile != stdin)
+        fclose(inputfile);
 
-        if (!XML_Parse(p, buffer, len, done)) {
-            int errorcode = XML_GetErrorCode(p);
-            if (errorcode == 36) ///< end of file?
-                break;
-            fprintf(stderr, "Parse error at line %ld:\n%s (code=%d)\n", XML_GetCurrentLineNumber(p), XML_ErrorString(errorcode), errorcode);
-            return 1;
-        }
-    }
+    // Cleanup function for the XML library.
+    xmlCleanupParser();
 
-    return 0;
+    return result;
 }
