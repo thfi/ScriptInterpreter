@@ -70,14 +70,14 @@ int main(int argc, char *argv[])
         debug_output = 1;
     }
 
-    if ((argc > 2 && debug_output == 0) || argc > 3) {
-        inputfilename = argv[argc - 2];
+    if ((argc > 1 && debug_output == 0) || argc > 2) {
+        inputfilename = argv[1 + debug_output];
         if (debug_output) fprintf(stderr, "Reading XML from file \"%s\"\n", inputfilename);
     } else if (debug_output)
         fprintf(stderr, "Reading XML from stdin\n");
 
-    if ((argc > 3 && debug_output == 0) || argc > 4) {
-        outputfilename = argv[argc - 1];
+    if ((argc > 2 && debug_output == 0) || argc > 3) {
+        outputfilename = argv[2 + debug_output];
         if (debug_output) fprintf(stderr, "Writing XML to file \"%s\"\n", outputfilename);
     } else if (debug_output)
         fprintf(stderr, "Writing XML to stdout\n");
