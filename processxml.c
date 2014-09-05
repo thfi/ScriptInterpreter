@@ -92,6 +92,7 @@ int main(int argc, char *argv[])
     struct xmldata data;
 
     inputfilename = NULL;
+    outputfilename = NULL;
     if (argc > 1 && strcmp("--debug", argv[1]) == 0) {
         fprintf(stderr, "Enabling debug output\n");
         debug_output = 1;
