@@ -73,6 +73,16 @@ void start_element(void *rawdata, const char *name, const char **attr) {
     printf("\n");
 }
 
+void text(void *userData, const XML_Char *s, int len) {
+    if (len > 1 && s[0] != '\n' && s[0] != ' ') {
+        if (len >= BUFFER_SIZE) len = BUFFER_SIZE - 1;
+        char buffer[BUFFER_SIZE];
+        strncpy(buffer, s, len);
+        buffer[len] = '\0';
+        printf("text: %s\n", buffer);
+    }
+}
+
 void end_element(void *rawdata, const char *name) {
     struct xmldata *data = (struct xmldata *)rawdata;
     if (strcmp(name, "timestep") == 0) {
@@ -139,6 +149,7 @@ int main(int argc, char *argv[])
     }
 
     XML_SetElementHandler(p, start_element, end_element);
+    XML_SetCharacterDataHandler(p, text);
 
     XML_SetUserData(p, &data);
     data.inside_timestep = 5;
