@@ -30,10 +30,61 @@ If not, see <http://www.gnu.org/licenses/>.
 #define BUFFER_SIZE 16384
 
 int debug_output;
+double accumulated_delay;
 
-int parse_timestep_node(xmlNode *timestepnode) {
-	// TODO
-    return 0;
+xmlNode *parse_timestep_node(xmlNode *timestepnode) {
+    if (timestepnode->type != XML_ELEMENT_NODE) {
+        fprintf(stderr, "Current node \"%s\" is not an element\n", timestepnode->name);
+        return timestepnode->next;
+    } else if (xmlStrEqual(timestepnode->name, (xmlChar *)"script")) {
+        fprintf(stderr, "Current node's name is not \"timestep\" but \"%s\"\n", timestepnode->name);
+        return timestepnode->next;
+    }
+
+    if (timestepnode->children != NULL &&  timestepnode->children->type == XML_TEXT_NODE &&  timestepnode->children->next == NULL && timestepnode->children->content[0] <= 32 && timestepnode->children->content[1] <= 32) {
+        /// Just a single text element with white space
+        xmlAttr *curAttr = timestepnode->properties;
+        while (curAttr != NULL) {
+            if (xmlStrEqual(curAttr->name, (xmlChar *)"delay")) {
+                double this_delay = atof((const char *)curAttr->children->content);
+                accumulated_delay += this_delay;
+                xmlNode *next = timestepnode->next;
+                xmlUnlinkNode(timestepnode);
+                xmlFreeNode(timestepnode);
+
+                /// Remove following empty-line text node
+                if (next->type == XML_TEXT_NODE && next->content[0] <= 32) {
+                    xmlNode *next2 = next->next;
+                    xmlUnlinkNode(next);
+                    xmlFreeNode(next);
+                    next = next2;
+                }
+
+                return next;
+            }
+            curAttr = curAttr->next;
+        }
+    }
+
+    if (accumulated_delay > 0.0) {
+        xmlAttr *curAttr = timestepnode->properties;
+        while (curAttr != NULL) {
+            if (xmlStrEqual(curAttr->name, (xmlChar *)"delay")) {
+                double this_delay = atof((const char *)curAttr->children->content);
+                xmlFreeNode(curAttr->children);
+                char printed_delay[BUFFER_SIZE];
+                snprintf(printed_delay, BUFFER_SIZE, "%.3lf", accumulated_delay + this_delay);
+                accumulated_delay = 0.0;
+                curAttr->children = xmlNewText((unsigned char *)printed_delay);
+                break;
+            }
+            curAttr = curAttr->next;
+        }
+    }
+
+    // TODO
+
+    return timestepnode->next;
 }
 
 int parse_script_node(xmlNode *scriptnode) {
@@ -45,11 +96,11 @@ int parse_script_node(xmlNode *scriptnode) {
         return 4;
     }
 
-    for (xmlNode *cur = scriptnode->children; cur; cur = cur->next) {
-        if (cur->type == XML_ELEMENT_NODE && xmlStrEqual(cur->name, (xmlChar *)"timestep") == 0) {
-            int result = parse_timestep_node(cur);
-            if (result != 0) return result;
-        }
+    for (xmlNode *cur = scriptnode->children; cur; /** cur is stepped forward below */) {
+        if (cur->type == XML_ELEMENT_NODE && xmlStrEqual(cur->name, (xmlChar *)"timestep"))
+            cur = parse_timestep_node(cur);
+        else
+            cur = cur->next;
     }
 
     return 0;
@@ -116,6 +167,7 @@ int main(int argc, char *argv[])
     }
     xmlNode *root_element = xmlDocGetRootElement(doc);
 
+    accumulated_delay = 0.0;
     int result = parse_script_node(root_element);
 
     /// Free the XML document
